@@ -1,0 +1,3 @@
+[submodule "external/bit_manip"]
+	path = external/bit_manip
+	url = https://github.com/Zhuagenborn/Bit-Manipulation
