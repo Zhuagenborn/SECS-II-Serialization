@@ -7,6 +7,22 @@
 #include <string_view>
 
 namespace secs2::sml {
+// fast formatter
+static std::string_view fast_formatter(std::uint8_t val) noexcept {
+    static std::array<char, 1024> hex_table{}; // 256 * "0xAB"
+    static bool table_prepared = false;
+    if (!table_prepared) {
+        for (int i = 0; i < 256; ++i) {
+            char* p = &hex_table[i * 4];
+            p[0] = '0';
+            p[1] = 'x';
+            p[2] = "0123456789ABCDEF"[i >> 4];
+            p[3] = "0123456789ABCDEF"[i & 0xF];
+        }
+        table_prepared = true;
+    }
+    return std::string_view{&hex_table[val * 4], 4}; // "0xAB"
+};
 
 std::ostream& BuildSml(std::ostream& os, const ASCII& vals,
                        const std::size_t indent_lvl,
@@ -24,10 +40,10 @@ std::ostream& BuildSml(std::ostream& os, const ASCII& vals,
 std::ostream& BuildSml(std::ostream& os, const Binary& vals,
                        const std::size_t indent_lvl,
                        const std::size_t indent_width) noexcept {
-    return BuildSml<std::string>(
+    return BuildSml<std::string_view>(
         os, vals,
         [](const auto val) noexcept {
-            return std::format("0x{:02X}", static_cast<std::uint8_t>(val));
+            return fast_formatter(static_cast<uint8_t>(val));
         },
         indent_lvl, indent_width);
 }
