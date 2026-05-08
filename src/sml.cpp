@@ -2,27 +2,33 @@
 #include "traits.h"
 
 #include <algorithm>
+#include <array>
 #include <format>
+#include <limits>
 #include <ranges>
 #include <string_view>
 
 namespace secs2::sml {
-// fast formatter
-static std::string_view fast_formatter(std::uint8_t val) noexcept {
-    static std::array<char, 1024> hex_table{}; // 256 * "0xAB"
-    static bool table_prepared = false;
-    if (!table_prepared) {
-        for (int i = 0; i < 256; ++i) {
-            char* p = &hex_table[i * 4];
-            p[0] = '0';
-            p[1] = 'x';
-            p[2] = "0123456789ABCDEF"[i >> 4];
-            p[3] = "0123456789ABCDEF"[i & 0xF];
-        }
-        table_prepared = true;
+
+inline constexpr std::size_t hex_string_length {sizeof("0xXX") - 1};
+
+using HexString = std::array<char, hex_string_length>;
+
+consteval auto CreateHexStringTable() noexcept {
+    constexpr std::string_view digits {"0123456789ABCDEF"};
+    constexpr auto val_count {std::numeric_limits<std::uint8_t>::max() + 1};
+    std::array<HexString, val_count> table {};
+    for (auto i {0}; i != table.size(); ++i) {
+        table[i] = {'0', 'x', digits[i >> 4], digits[i & 0x0F]};
     }
-    return std::string_view{&hex_table[val * 4], 4}; // "0xAB"
-};
+    return table;
+}
+
+constexpr std::string_view FastFormatHex(const std::byte val) noexcept {
+    static constexpr auto hex_table {CreateHexStringTable()};
+    const auto& str {hex_table[std::to_integer<std::size_t>(val)]};
+    return {str.data(), str.size()};
+}
 
 std::ostream& BuildSml(std::ostream& os, const ASCII& vals,
                        const std::size_t indent_lvl,
@@ -41,10 +47,7 @@ std::ostream& BuildSml(std::ostream& os, const Binary& vals,
                        const std::size_t indent_lvl,
                        const std::size_t indent_width) noexcept {
     return BuildSml<std::string_view>(
-        os, vals,
-        [](const auto val) noexcept {
-            return fast_formatter(static_cast<uint8_t>(val));
-        },
+        os, vals, [](const auto val) noexcept { return FastFormatHex(val); },
         indent_lvl, indent_width);
 }
 
